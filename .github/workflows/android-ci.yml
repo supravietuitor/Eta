@@ -34,6 +34,8 @@ jobs:
         run: sdkmanager --channel=3 "platforms;android-37.0"
       - name: Check application id
         run: grep -q 'applicationId = "sv.eta"' app/build.gradle.kts
+      - name: Test vision probe parser and ledger boundaries
+        run: python3 -m unittest discover -s .github/tests -p 'test_*.py' -v
       - name: Test
         run: ./gradlew --no-daemon --no-configuration-cache :app:testDebugUnitTest
       - name: Lint

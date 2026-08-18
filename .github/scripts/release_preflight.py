@@ -16,6 +16,18 @@ def fail(message: str) -> int:
     return 1
 
 
+def comparison_version_code(ledger: dict[str, object]) -> int | None:
+    last_released = ledger.get("lastReleasedVersionCode")
+    if last_released is not None:
+        return int(last_released)
+    baseline = ledger.get("initialVersionBaseline")
+    if not isinstance(baseline, dict) or baseline.get("versionCode") != 0:
+        return None
+    if ledger.get("releaseStatus") != "no_formal_release":
+        return None
+    return 0
+
+
 def main() -> int:
     root = Path(__file__).parents[2]
     ledger = json.loads((root / ".github/version-ledger.json").read_text(encoding="utf-8"))
@@ -28,7 +40,10 @@ def main() -> int:
     if not version_name or not version_code:
         return fail("version_metadata_missing")
     current_code = int(version_code.group(1))
-    if current_code <= int(ledger["lastReleasedVersionCode"]):
+    comparison_code = comparison_version_code(ledger)
+    if comparison_code is None:
+        return fail("version_ledger_invalid")
+    if current_code <= comparison_code:
         return fail("version_code_not_strictly_increasing")
     tag = f"v{version_name.group(1)}"
     existing = subprocess.run(["git", "ls-remote", "--tags", "origin", f"refs/tags/{tag}"], capture_output=True, text=True, check=False)

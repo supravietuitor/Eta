@@ -35,9 +35,12 @@ jobs:
       - name: Run redacted exact-model probes
         env:
           ETA_VISION_API_KEY: ${{ secrets.ETA_VISION_API_KEY }}
+          ETA_VISION_BASE_URL: ${{ inputs.base_url }}
+          ETA_VISION_MODEL_IDS: ${{ inputs.model_ids }}
+          ETA_VISION_PROTOCOLS: ${{ inputs.protocols }}
         run: |
           python3 .github/scripts/vision_probe.py \
-            --base-url '${{ inputs.base_url }}' \
-            --models '${{ inputs.model_ids }}' \
-            --protocols '${{ inputs.protocols }}' \
+            --base-url "$ETA_VISION_BASE_URL" \
+            --models "$ETA_VISION_MODEL_IDS" \
+            --protocols "$ETA_VISION_PROTOCOLS" \
             --fixture .github/fixtures/vision-probe.png.b64

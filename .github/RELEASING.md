@@ -10,6 +10,6 @@
 
 ## 版本 ledger 与后续 Gate
 
-版本基线见 `.github/version-ledger.json`。后续获批发布时，维护者应在 PR 中更新 `versionName`、严格递增 `versionCode` 和 ledger，再由 GitHub Actions 预检唯一的 `v<versionName>` 标签及最新 main CI。证书 SHA-256 指纹通过 `ETA_RELEASE_CERT_SHA256` 校验，证书内容和密码不得进入 Git。
+版本基线见 `.github/version-ledger.json`。当前 fork 尚无正式 GitHub Release，因此 `lastReleasedVersionName` 和 `lastReleasedVersionCode` 必须保持 `null`，不能把当前开发版本记录为已发布版本。`initialVersionBaseline.versionCode=0` 是明确标注的比较哨兵值，仅用于让当前 `versionCode=261` 通过严格递增预检，不代表曾发布过 `0.0.0`。后续获批发布时，维护者应在 PR 中更新正式的 lastReleased 字段、严格递增 `versionCode` 和 ledger，再由 GitHub Actions 预检唯一的 `v<versionName>` 标签及最新 main CI。证书 SHA-256 指纹通过 `ETA_RELEASE_CERT_SHA256` 校验，证书内容和密码不得进入 Git。
 
 Release Gate 单独批准后，才允许在 GitHub 的 `release` Environment 运行生产签名步骤。正式创建 tag、创建 Draft Release、上传 APK、发布 Release 均属于后续独立授权；本仓库不提供本机打包、打 tag、上传或发布指引。

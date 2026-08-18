@@ -26,7 +26,10 @@ class ProbeFailure(Exception):
 
 
 def request_json(url: str, api_key: str, payload: dict[str, Any] | None) -> Any:
-    body = None if payload is None else json.dumps(payload, separators=(",", ":")).encode()
+    try:
+        body = None if payload is None else json.dumps(payload, separators=(",", ":")).encode()
+    except (TypeError, ValueError):
+        raise ProbeFailure("protocol_error")
     headers = {"Accept": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -39,7 +42,7 @@ def request_json(url: str, api_key: str, payload: dict[str, Any] | None) -> Any:
             raw = response.read()
             try:
                 return json.loads(raw)
-            except json.JSONDecodeError as exc:
+            except (TypeError, ValueError) as exc:
                 raise ProbeFailure("protocol_error") from exc
     except urllib.error.HTTPError as exc:
         if exc.code in (401, 403):
@@ -49,7 +52,7 @@ def request_json(url: str, api_key: str, payload: dict[str, Any] | None) -> Any:
         if exc.code == 404:
             raise ProbeFailure("routing") from exc
         raise ProbeFailure("protocol_error") from exc
-    except (TimeoutError, socket.timeout, urllib.error.URLError) as exc:
+    except (TimeoutError, socket.timeout, urllib.error.URLError, OSError) as exc:
         if isinstance(exc, urllib.error.URLError) and not isinstance(exc.reason, (TimeoutError, socket.timeout)):
             raise ProbeFailure("routing") from exc
         raise ProbeFailure("timeout") from exc
@@ -62,8 +65,10 @@ def url_join(base_url: str, path: str) -> str:
 def model_ids(models_payload: Any) -> set[str]:
     if not isinstance(models_payload, dict) or not isinstance(models_payload.get("data"), list):
         raise ProbeFailure("protocol_error")
-    ids = {item.get("id") for item in models_payload["data"] if isinstance(item, dict)}
-    if not ids or not all(isinstance(item, str) and item for item in ids):
+    if not models_payload["data"] or not all(isinstance(item, dict) for item in models_payload["data"]):
+        raise ProbeFailure("protocol_error")
+    ids = {item.get("id") for item in models_payload["data"]}
+    if not ids or not all(isinstance(item, str) and bool(item) for item in ids):
         raise ProbeFailure("protocol_error")
     return ids
 
@@ -72,17 +77,23 @@ def text_fragments(value: Any) -> list[str]:
     if isinstance(value, str):
         return [value]
     if isinstance(value, list):
+        if not value:
+            raise ProbeFailure("protocol_error")
         result: list[str] = []
         for item in value:
             result.extend(text_fragments(item))
         return result
     if isinstance(value, dict):
         result = []
+        found = False
         for key in ("text", "content", "output_text"):
             if key in value:
+                found = True
                 result.extend(text_fragments(value[key]))
+        if not found:
+            raise ProbeFailure("protocol_error")
         return result
-    return []
+    raise ProbeFailure("protocol_error")
 
 
 def assert_probe_response(protocol: str, response: Any) -> None:
@@ -90,13 +101,20 @@ def assert_probe_response(protocol: str, response: Any) -> None:
         raise ProbeFailure("protocol_error")
     if protocol == "chat_completions":
         choices = response.get("choices")
-        if not isinstance(choices, list) or not choices:
+        if not isinstance(choices, list) or not choices or not all(isinstance(item, dict) for item in choices):
             raise ProbeFailure("protocol_error")
-        fragments = text_fragments(choices[0].get("message", {}).get("content"))
+        message = choices[0].get("message")
+        if not isinstance(message, dict) or "content" not in message:
+            raise ProbeFailure("protocol_error")
+        fragments = text_fragments(message["content"])
     elif protocol == "responses":
-        fragments = text_fragments(response.get("output"))
+        if "output" not in response:
+            raise ProbeFailure("protocol_error")
+        fragments = text_fragments(response["output"])
     else:
-        fragments = text_fragments(response.get("content"))
+        if "content" not in response:
+            raise ProbeFailure("protocol_error")
+        fragments = text_fragments(response["content"])
     if PROBE_MARKER not in "".join(fragments):
         raise ProbeFailure("content_assertion")
 
@@ -130,7 +148,8 @@ def main() -> int:
         print("FAIL category=protocol_error")
         return 1
     try:
-        image_data = base64.b64decode(Path(args.fixture).read_text(encoding="ascii"), validate=True).decode("ascii")
+        image_bytes = base64.b64decode(Path(args.fixture).read_text(encoding="ascii"), validate=True)
+        image_data = base64.b64encode(image_bytes).decode("ascii")
         available = model_ids(request_json(url_join(args.base_url, "v1/models"), api_key, None))
     except ProbeFailure as failure:
         print(f"FAIL category={failure.category}")
