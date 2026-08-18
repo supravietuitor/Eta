@@ -1,0 +1,7 @@
+{
+  "applicationId": "sv.eta",
+  "lastReleasedVersionName": "2.6.1",
+  "lastReleasedVersionCode": 261,
+  "tagPattern": "v<versionName>",
+  "releaseCertificateSha256Secret": "ETA_RELEASE_CERT_SHA256"
+}

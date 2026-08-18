@@ -27,7 +27,7 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "fuck.andes"
+        applicationId = "sv.eta"
         minSdk = 34
         targetSdk = 36
         versionCode = 261
