@@ -17,6 +17,7 @@ SCRIPTS = Path(__file__).parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 import vision_probe  # noqa: E402
+import release_preflight  # noqa: E402
 
 
 class VisionProbeTests(unittest.TestCase):
@@ -37,6 +38,8 @@ class VisionProbeTests(unittest.TestCase):
     def test_malformed_shapes_are_protocol_failures(self) -> None:
         cases = [
             ("models", {"data": [{"id": None}]}),
+            ("models", {"data": [{"id": []}]}),
+            ("models", {"data": [None]}),
             ("chat_completions", {"choices": [None]}),
             ("chat_completions", {"choices": [{"message": None}]}),
             ("chat_completions", {"choices": [{"message": {"content": None}}]}),
@@ -76,6 +79,13 @@ class VisionProbeTests(unittest.TestCase):
                     result = vision_probe.main()
         self.assertEqual(result, 1)
         self.assertEqual(output.getvalue().strip(), "FAIL category=protocol_error")
+
+    def test_model_ids_validates_before_hashing(self) -> None:
+        for item in ({"id": []}, {"id": {}}, {"id": None}, {"id": 1}, None):
+            with self.subTest(item=item):
+                with self.assertRaises(vision_probe.ProbeFailure) as raised:
+                    vision_probe.model_ids({"data": [item]})
+                self.assertEqual(raised.exception.category, "protocol_error")
 
     def test_content_assertion_category(self) -> None:
         with self.assertRaises(vision_probe.ProbeFailure) as raised:
@@ -154,6 +164,48 @@ class VisionProbeTests(unittest.TestCase):
         baseline = ledger["initialVersionBaseline"]["versionCode"]
         self.assertLess(baseline, 261)
         self.assertFalse(260 > 261)
+
+
+class ReleasePreflightTests(unittest.TestCase):
+    def test_invalid_ledger_values_fail_closed(self) -> None:
+        cases = [
+            None,
+            [],
+            {"lastReleasedVersionCode": []},
+            {"lastReleasedVersionCode": {}},
+            {"lastReleasedVersionCode": "not-a-version"},
+            {"lastReleasedVersionCode": 1.5},
+            {"lastReleasedVersionCode": True},
+            {"initialVersionBaseline": {"versionCode": "0"}, "releaseStatus": "no_formal_release"},
+        ]
+        for ledger in cases:
+            with self.subTest(ledger=ledger):
+                self.assertIsNone(release_preflight.comparison_version_code(ledger))
+
+    def test_valid_ledger_values_are_converted(self) -> None:
+        self.assertEqual(
+            release_preflight.comparison_version_code({"lastReleasedVersionCode": "260"}),
+            260,
+        )
+        self.assertEqual(
+            release_preflight.comparison_version_code(
+                {"initialVersionBaseline": {"versionCode": 0}, "releaseStatus": "no_formal_release"}
+            ),
+            0,
+        )
+
+    def test_missing_or_malformed_version_config_fails_closed(self) -> None:
+        for gradle in (None, [], "applicationId = \"sv.eta\"", "versionCode = not-a-number"):
+            with self.subTest(gradle=gradle):
+                self.assertIsNone(release_preflight.version_metadata(gradle))
+
+    def test_version_config_is_parsed_without_building(self) -> None:
+        self.assertEqual(
+            release_preflight.version_metadata(
+                'applicationId = "sv.eta"\nversionName = "2.6.1"\nversionCode = 261'
+            ),
+            ("sv.eta", "2.6.1", 261),
+        )
 
 
 if __name__ == "__main__":

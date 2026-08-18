@@ -65,10 +65,15 @@ def url_join(base_url: str, path: str) -> str:
 def model_ids(models_payload: Any) -> set[str]:
     if not isinstance(models_payload, dict) or not isinstance(models_payload.get("data"), list):
         raise ProbeFailure("protocol_error")
-    if not models_payload["data"] or not all(isinstance(item, dict) for item in models_payload["data"]):
-        raise ProbeFailure("protocol_error")
-    ids = {item.get("id") for item in models_payload["data"]}
-    if not ids or not all(isinstance(item, str) and bool(item) for item in ids):
+    ids: set[str] = set()
+    for item in models_payload["data"]:
+        if not isinstance(item, dict):
+            raise ProbeFailure("protocol_error")
+        model_id = item.get("id")
+        if not isinstance(model_id, str) or not model_id:
+            raise ProbeFailure("protocol_error")
+        ids.add(model_id)
+    if not ids:
         raise ProbeFailure("protocol_error")
     return ids
 
