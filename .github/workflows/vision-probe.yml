@@ -39,6 +39,10 @@ jobs:
           ETA_VISION_MODEL_IDS: ${{ inputs.model_ids }}
           ETA_VISION_PROTOCOLS: ${{ inputs.protocols }}
         run: |
+          if [ -z "${ETA_VISION_API_KEY:-}" ]; then
+            echo "ERROR: ETA_VISION_API_KEY is not configured"
+            exit 1
+          fi
           python3 .github/scripts/vision_probe.py \
             --base-url "$ETA_VISION_BASE_URL" \
             --models "$ETA_VISION_MODEL_IDS" \
