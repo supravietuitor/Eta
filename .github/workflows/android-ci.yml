@@ -1,0 +1,53 @@
+name: Eta CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eta-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-lint-unsigned:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up JDK 25
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
+        with:
+          distribution: temurin
+          java-version: "25"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6
+        with:
+          cache-provider: basic
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
+      - name: Install Android SDK 37
+        run: sdkmanager --channel=3 "platforms;android-37.0"
+      - name: Check application id
+        run: grep -q 'applicationId = "sv.eta"' app/build.gradle.kts
+      - name: Test vision probe parser and ledger boundaries
+        run: python3 -m unittest discover -s .github/tests -p 'test_*.py' -v
+      - name: Test
+        run: ./gradlew --no-daemon --no-configuration-cache :app:testDebugUnitTest
+      - name: Lint
+        run: ./gradlew --no-daemon --no-configuration-cache :app:lintDebug
+      - name: Build unsigned artifacts
+        run: ./gradlew --no-daemon --no-configuration-cache :app:assembleDebug :app:assembleRelease
+      - name: Upload unsigned artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: eta-unsigned-apks-${{ github.sha }}
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error
+          retention-days: 14

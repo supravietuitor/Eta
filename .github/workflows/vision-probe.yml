@@ -1,0 +1,46 @@
+name: Eta Vision Probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: API host, without /v1 (for example https://provider.example)
+        required: true
+        type: string
+      model_ids:
+        description: Exact comma-separated model IDs returned by /v1/models
+        required: true
+        type: string
+      protocols:
+        description: Comma-separated protocols: chat_completions,responses,anthropic
+        required: true
+        default: chat_completions,responses,anthropic
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eta-vision-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: vision-probe
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30af803 # v6
+      - name: Run redacted exact-model probes
+        env:
+          ETA_VISION_API_KEY: ${{ secrets.ETA_VISION_API_KEY }}
+          ETA_VISION_BASE_URL: ${{ inputs.base_url }}
+          ETA_VISION_MODEL_IDS: ${{ inputs.model_ids }}
+          ETA_VISION_PROTOCOLS: ${{ inputs.protocols }}
+        run: |
+          python3 .github/scripts/vision_probe.py \
+            --base-url "$ETA_VISION_BASE_URL" \
+            --models "$ETA_VISION_MODEL_IDS" \
+            --protocols "$ETA_VISION_PROTOCOLS" \
+            --fixture .github/fixtures/vision-probe.png.b64

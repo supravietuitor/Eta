@@ -1,52 +1,15 @@
-# Eta 发布流程
+# Eta GitHub-only 发布流程
 
-## 配置签名 Secrets
+## 当前边界
 
-发布证书和密码不得提交到 Git。首次使用前，在仓库的
-`Settings > Secrets and variables > Actions` 中添加：
+- `Eta CI` 仅在 Pull Request 和 `main` 上执行测试、lint、未签名 Debug/Release 构建。
+- `Eta Vision Probe` 仅允许 `workflow_dispatch`，使用 `vision-probe` Environment；模型 ID 必须精确来自 `/v1/models`，每个模型/协议连续两次 PASS 才通过。
+- `Eta Release Gate` 仅允许 `workflow_dispatch`。预检会检查 main CI 成功、版本名/版本码、唯一标签、版本码严格递增和版本 ledger。
+- 生产签名 Secrets 只存在于 `release` Environment 的审批后 job；PR/main 不读取它们。
+- 当前 Release Gate 停在发布前：不会创建 tag、正式签名生产 APK 或创建/发布 GitHub Release。
 
-- `ETA_RELEASE_KEYSTORE_BASE64`：发布证书的 Base64 文本
-- `ETA_RELEASE_STORE_PASSWORD`：KeyStore 密码
-- `ETA_RELEASE_KEY_ALIAS`：Key alias
-- `ETA_RELEASE_KEY_PASSWORD`：Key 密码
+## 版本 ledger 与后续 Gate
 
-macOS 可以用下面的命令复制证书的 Base64 文本：
+版本基线见 `.github/version-ledger.json`。当前 fork 尚无正式 GitHub Release，因此 `lastReleasedVersionName` 和 `lastReleasedVersionCode` 必须保持 `null`，不能把当前开发版本记录为已发布版本。`initialVersionBaseline.versionCode=0` 是明确标注的比较哨兵值，仅用于让当前 `versionCode=261` 通过严格递增预检，不代表曾发布过 `0.0.0`。后续获批发布时，维护者应在 PR 中更新正式的 lastReleased 字段、严格递增 `versionCode` 和 ledger，再由 GitHub Actions 预检唯一的 `v<versionName>` 标签及最新 main CI。证书 SHA-256 指纹通过 `ETA_RELEASE_CERT_SHA256` 校验，证书内容和密码不得进入 Git。
 
-```bash
-base64 < /path/to/Eta-release.jks | tr -d '\n' | pbcopy
-```
-
-也可以使用 GitHub CLI。密码类 Secret 不要直接写在命令参数中，运行命令后按提示输入：
-
-```bash
-base64 < /path/to/Eta-release.jks | gh secret set ETA_RELEASE_KEYSTORE_BASE64
-gh secret set ETA_RELEASE_STORE_PASSWORD
-gh secret set ETA_RELEASE_KEY_ALIAS
-gh secret set ETA_RELEASE_KEY_PASSWORD
-```
-
-## 构建与发布
-
-以下情况会在同一次工作流中生成 Debug APK 和经过签名验证的 Release APK，
-并作为两个可直接下载的 Actions Artifact 保存 14 天：
-
-- 向 `main` 推送提交
-- 推送 `v*` 标签
-- 在 GitHub 的 `Actions > Eta Build` 中手动运行
-
-工作流不会创建、修改或发布 GitHub Release。
-
-正式发布前先更新 `versionCode` 和 `versionName`，然后创建与
-`versionName` 对应的标签。例如发布 `2.2.2`：
-
-```bash
-git tag v2.2.2
-git push origin v2.2.2
-```
-
-标签推送后，等待 `Eta Build` 工作流完成，然后：
-
-1. 从该次工作流的 `Artifacts` 下载 `app-release.apk`。
-2. 在仓库的 `Releases > Draft a new release` 中选择已有标签。
-3. 填写 Release Notes 并上传 APK。
-4. 检查版本、说明和附件后，由维护者手动发布。
+Release Gate 单独批准后，才允许在 GitHub 的 `release` Environment 运行生产签名步骤。正式创建 tag、创建 Draft Release、上传 APK、发布 Release 均属于后续独立授权；本仓库不提供本机打包、打 tag、上传或发布指引。

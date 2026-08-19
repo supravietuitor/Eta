@@ -1,3 +1,5 @@
+import org.gradle.api.tasks.testing.Test
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -27,7 +29,7 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "fuck.andes"
+        applicationId = "sv.eta"
         minSdk = 34
         targetSdk = 36
         versionCode = 261
@@ -93,6 +95,13 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
+    }
+}
+
+tasks.withType<Test>().configureEach {
+    testLogging {
+        events("started", "passed", "failed", "skipped")
+        showStandardStreams = true
     }
 }
 

@@ -1,0 +1,13 @@
+{
+  "applicationId": "sv.eta",
+  "releaseStatus": "no_formal_release",
+  "lastReleasedVersionName": null,
+  "lastReleasedVersionCode": null,
+  "initialVersionBaseline": {
+    "versionName": "0.0.0",
+    "versionCode": 0,
+    "source": "No formal GitHub Release exists for this fork; comparison sentinel only."
+  },
+  "tagPattern": "v<versionName>",
+  "releaseCertificateSha256Secret": "ETA_RELEASE_CERT_SHA256"
+}
