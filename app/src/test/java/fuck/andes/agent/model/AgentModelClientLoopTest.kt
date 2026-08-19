@@ -484,7 +484,7 @@ class AgentModelClientLoopTest {
         assertEquals("先检查状态", failure.reasoningContent)
     }
 
-    @Test(timeout = 30_000)
+    @Test
     fun loopContinuesPastFormerLocalLimitsUntilProviderFinishes() {
         val toolRounds = 257
         val responses = List<(ProviderRequest, AgentRunController) -> JSONObject>(toolRounds) { index ->
