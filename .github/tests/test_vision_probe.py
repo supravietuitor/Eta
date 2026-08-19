@@ -207,6 +207,20 @@ class ReleasePreflightTests(unittest.TestCase):
             ("sv.eta", "2.6.1", 261),
         )
 
+    def test_version_code_requires_a_non_negative_whole_value(self) -> None:
+        invalid_values = ("261junk", "1.5", "", "-1")
+        for value in invalid_values:
+            with self.subTest(value=value):
+                gradle = f'applicationId = "sv.eta"\nversionName = "2.6.1"\nversionCode = {value}'
+                self.assertIsNone(release_preflight.version_metadata(gradle))
+
+    def test_ledger_version_code_requires_a_non_negative_whole_value(self) -> None:
+        for value in ("261junk", "1.5", "", "-1"):
+            with self.subTest(value=value):
+                self.assertIsNone(
+                    release_preflight.comparison_version_code({"lastReleasedVersionCode": value})
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -10,10 +10,22 @@ import sys
 import urllib.request
 from pathlib import Path
 
+STRICT_VERSION_CODE = re.compile(r"[0-9]+")
+
 
 def fail(message: str) -> int:
     print(f"FAIL {message}")
     return 1
+
+
+def strict_version_code(value: object) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if value >= 0 else None
+    if not isinstance(value, str) or STRICT_VERSION_CODE.fullmatch(value) is None:
+        return None
+    return int(value)
 
 
 def comparison_version_code(ledger: object) -> int | None:
@@ -21,16 +33,12 @@ def comparison_version_code(ledger: object) -> int | None:
         return None
     last_released = ledger.get("lastReleasedVersionCode")
     if last_released is not None:
-        if isinstance(last_released, bool) or not isinstance(last_released, (int, str)):
-            return None
-        try:
-            return int(last_released)
-        except (TypeError, ValueError):
-            return None
+        return strict_version_code(last_released)
     baseline = ledger.get("initialVersionBaseline")
     if (
         not isinstance(baseline, dict)
         or isinstance(baseline.get("versionCode"), bool)
+        or not isinstance(baseline.get("versionCode"), int)
         or baseline.get("versionCode") != 0
     ):
         return None
@@ -44,12 +52,11 @@ def version_metadata(gradle: object) -> tuple[str, str, int] | None:
         return None
     application_id = re.search(r'applicationId\s*=\s*"([^"]+)"', gradle)
     version_name = re.search(r'versionName\s*=\s*"([^"]+)"', gradle)
-    version_code = re.search(r"versionCode\s*=\s*(\d+)", gradle)
+    version_code = re.search(r"(?m)^\s*versionCode\s*=\s*([^\r\n]*)$", gradle)
     if not application_id or not version_name or not version_code:
         return None
-    try:
-        current_code = int(version_code.group(1))
-    except (TypeError, ValueError):
+    current_code = strict_version_code(version_code.group(1).strip())
+    if current_code is None:
         return None
     return application_id.group(1), version_name.group(1), current_code
 
